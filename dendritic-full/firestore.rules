@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Vendors ────────────────────────────────────────────────
+    match /vendors/{vendorId} {
+      // Anyone can read active vendor profiles
+      allow read: if resource.data.status == 'active';
+      // Only the vendor themselves can write
+      allow write: if request.auth != null && request.auth.uid == vendorId;
+    }
+
+    // ── Products ───────────────────────────────────────────────
+    match /products/{productId} {
+      // Anyone can read available products
+      allow read: if resource.data.available == true;
+      // Only the product's vendor can write
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null
+        && request.auth.uid == resource.data.vendorId;
+    }
+
+    // ── Orders ─────────────────────────────────────────────────
+    match /orders/{orderId} {
+      // Customer or vendor can read their orders
+      allow read: if request.auth != null
+        && (request.auth.uid == resource.data.customerId
+         || request.auth.uid == resource.data.vendorId);
+      // Authenticated users can create orders
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.customerId;
+      // Only the vendor can update order status
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.vendorId;
+    }
+
+    // ── Reviews ────────────────────────────────────────────────
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+    }
+
+    // ── Admins ─────────────────────────────────────────────────
+    match /admins/{adminId} {
+      allow read: if request.auth != null && request.auth.uid == adminId;
+      allow write: if false; // Managed via Firebase Console only
+    }
+  }
+}
